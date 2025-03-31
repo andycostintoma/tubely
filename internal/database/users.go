@@ -20,7 +20,7 @@ type CreateUserParams struct {
 	Password string `json:"password"`
 }
 
-func (c Client) GetUsers() ([]User, error) {
+func (c *Client) GetUsers() ([]User, error) {
 	query := `
 		SELECT
 			id,
@@ -34,7 +34,7 @@ func (c Client) GetUsers() ([]User, error) {
 	}
 	defer rows.Close()
 
-	users := []User{}
+	var users []User
 	for rows.Next() {
 		var user User
 		var id string
@@ -51,7 +51,7 @@ func (c Client) GetUsers() ([]User, error) {
 	return users, nil
 }
 
-func (c Client) GetUserByEmail(email string) (User, error) {
+func (c *Client) GetUserByEmail(email string) (User, error) {
 	query := `
 		SELECT id, created_at, updated_at, email, password
 		FROM users
@@ -73,7 +73,7 @@ func (c Client) GetUserByEmail(email string) (User, error) {
 	return user, nil
 }
 
-func (c Client) GetUserByRefreshToken(token string) (*User, error) {
+func (c *Client) GetUserByRefreshToken(token string) (*User, error) {
 	query := `
 		SELECT u.id, u.email, u.created_at, u.updated_at, u.password
 		FROM users u
@@ -98,7 +98,7 @@ func (c Client) GetUserByRefreshToken(token string) (*User, error) {
 	return &user, nil
 }
 
-func (c Client) CreateUser(params CreateUserParams) (*User, error) {
+func (c *Client) CreateUser(params CreateUserParams) (*User, error) {
 	id := uuid.New()
 
 	query := `
@@ -115,7 +115,7 @@ func (c Client) CreateUser(params CreateUserParams) (*User, error) {
 	return c.GetUser(id)
 }
 
-func (c Client) GetUser(id uuid.UUID) (*User, error) {
+func (c *Client) GetUser(id uuid.UUID) (*User, error) {
 	query := `
 		SELECT id, created_at, updated_at, email, password
 		FROM users
@@ -137,7 +137,7 @@ func (c Client) GetUser(id uuid.UUID) (*User, error) {
 	return &user, nil
 }
 
-func (c Client) DeleteUser(id uuid.UUID) error {
+func (c *Client) DeleteUser(id uuid.UUID) error {
 	query := `
 		DELETE FROM users
 		WHERE id = ?

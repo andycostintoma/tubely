@@ -1,10 +1,9 @@
-package main
+package server
 
 import (
+	"github.com/andycostintoma/tubely/internal/auth"
 	"net/http"
 	"time"
-
-	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 )
 
 func (cfg *apiConfig) handlerRefresh(w http.ResponseWriter, r *http.Request) {

@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,7 +21,7 @@ type CreateRefreshTokenParams struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-func (c Client) CreateRefreshToken(params CreateRefreshTokenParams) (RefreshToken, error) {
+func (c *Client) CreateRefreshToken(params CreateRefreshTokenParams) (RefreshToken, error) {
 	query := `
 		INSERT INTO refresh_tokens (
 			token,
@@ -38,7 +39,7 @@ func (c Client) CreateRefreshToken(params CreateRefreshTokenParams) (RefreshToke
 	return c.GetRefreshToken(params.Token)
 }
 
-func (c Client) RevokeRefreshToken(token string) error {
+func (c *Client) RevokeRefreshToken(token string) error {
 	query := `
 		UPDATE refresh_tokens
 		SET revoked_at = CURRENT_TIMESTAMP
@@ -48,7 +49,7 @@ func (c Client) RevokeRefreshToken(token string) error {
 	return err
 }
 
-func (c Client) GetRefreshToken(token string) (RefreshToken, error) {
+func (c *Client) GetRefreshToken(token string) (RefreshToken, error) {
 	query := `
 		SELECT token, created_at, updated_at, user_id, expires_at, revoked_at
 		FROM refresh_tokens
@@ -59,7 +60,7 @@ func (c Client) GetRefreshToken(token string) (RefreshToken, error) {
 	err := c.db.QueryRow(query, token).
 		Scan(&rt.Token, &rt.CreatedAt, &rt.UpdatedAt, &userID, &rt.ExpiresAt, &rt.RevokedAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return RefreshToken{}, nil
 		}
 		return RefreshToken{}, err
@@ -73,7 +74,7 @@ func (c Client) GetRefreshToken(token string) (RefreshToken, error) {
 	return rt, nil
 }
 
-func (c Client) DeleteRefreshToken(token string) error {
+func (c *Client) DeleteRefreshToken(token string) error {
 	query := `
 		DELETE FROM refresh_tokens
 		WHERE token = ?

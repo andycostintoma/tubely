@@ -1,15 +1,12 @@
-package main
+package server
 
 import (
+	"fmt"
+	"github.com/andycostintoma/tubely/internal/database"
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/database"
-	"github.com/google/uuid"
-
-	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
+	"time"
 )
 
 type apiConfig struct {
@@ -24,15 +21,8 @@ type apiConfig struct {
 	port             string
 }
 
-type thumbnail struct {
-	data      []byte
-	mediaType string
-}
 
-var videoThumbnails = map[uuid.UUID]thumbnail{}
-
-func main() {
-	godotenv.Load(".env")
+func NewServer() (*http.Server, error) {
 
 	pathToDB := os.Getenv("DB_PATH")
 	if pathToDB == "" {
@@ -101,34 +91,13 @@ func main() {
 		log.Fatalf("Couldn't create assets directory: %v", err)
 	}
 
-	mux := http.NewServeMux()
-	appHandler := http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))
-	mux.Handle("/app/", appHandler)
-
-	assetsHandler := http.StripPrefix("/assets", http.FileServer(http.Dir(assetsRoot)))
-	mux.Handle("/assets/", cacheMiddleware(assetsHandler))
-
-	mux.HandleFunc("POST /api/login", cfg.handlerLogin)
-	mux.HandleFunc("POST /api/refresh", cfg.handlerRefresh)
-	mux.HandleFunc("POST /api/revoke", cfg.handlerRevoke)
-
-	mux.HandleFunc("POST /api/users", cfg.handlerUsersCreate)
-
-	mux.HandleFunc("POST /api/videos", cfg.handlerVideoMetaCreate)
-	mux.HandleFunc("POST /api/thumbnail_upload/{videoID}", cfg.handlerUploadThumbnail)
-	mux.HandleFunc("POST /api/video_upload/{videoID}", cfg.handlerUploadVideo)
-	mux.HandleFunc("GET /api/videos", cfg.handlerVideosRetrieve)
-	mux.HandleFunc("GET /api/videos/{videoID}", cfg.handlerVideoGet)
-	mux.HandleFunc("GET /api/thumbnails/{videoID}", cfg.handlerThumbnailGet)
-	mux.HandleFunc("DELETE /api/videos/{videoID}", cfg.handlerVideoMetaDelete)
-
-	mux.HandleFunc("POST /admin/reset", cfg.handlerReset)
-
-	srv := &http.Server{
-		Addr:    ":" + port,
-		Handler: mux,
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%v", cfg.port),
+		Handler:      cfg.RegisterRoutes(),
+		IdleTimeout:  time.Minute,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	}
 
-	log.Printf("Serving on: http://localhost:%s/app/\n", port)
-	log.Fatal(srv.ListenAndServe())
+	return server, nil
 }

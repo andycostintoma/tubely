@@ -75,7 +75,7 @@ func (c *Client) autoMigrate() error {
 	return nil
 }
 
-func (c Client) Reset() error {
+func (c *Client) Reset() error {
 	if _, err := c.db.Exec("DELETE FROM refresh_tokens"); err != nil {
 		return fmt.Errorf("failed to reset table refresh_tokens: %w", err)
 	}

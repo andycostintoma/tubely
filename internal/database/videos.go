@@ -23,7 +23,7 @@ type CreateVideoParams struct {
 	UserID      uuid.UUID `json:"user_id"`
 }
 
-func (c Client) GetVideos(userID uuid.UUID) ([]Video, error) {
+func (c *Client) GetVideos(userID uuid.UUID) ([]Video, error) {
 	query := `
 	SELECT
 		id,
@@ -45,7 +45,7 @@ func (c Client) GetVideos(userID uuid.UUID) ([]Video, error) {
 	}
 	defer rows.Close()
 
-	videos := []Video{}
+	var videos []Video
 	for rows.Next() {
 		var video Video
 		if err := rows.Scan(
@@ -66,7 +66,7 @@ func (c Client) GetVideos(userID uuid.UUID) ([]Video, error) {
 	return videos, nil
 }
 
-func (c Client) CreateVideo(params CreateVideoParams) (Video, error) {
+func (c *Client) CreateVideo(params CreateVideoParams) (Video, error) {
 	id := uuid.New()
 	query := `
 	INSERT INTO videos (
@@ -86,7 +86,7 @@ func (c Client) CreateVideo(params CreateVideoParams) (Video, error) {
 	return c.GetVideo(id)
 }
 
-func (c Client) GetVideo(id uuid.UUID) (Video, error) {
+func (c *Client) GetVideo(id uuid.UUID) (Video, error) {
 	query := `
 	SELECT
 		id,
@@ -121,7 +121,7 @@ func (c Client) GetVideo(id uuid.UUID) (Video, error) {
 	return video, nil
 }
 
-func (c Client) UpdateVideo(video Video) error {
+func (c *Client) UpdateVideo(video Video) error {
 	query := `
 	UPDATE videos
 	SET
@@ -145,7 +145,7 @@ func (c Client) UpdateVideo(video Video) error {
 	return err
 }
 
-func (c Client) DeleteVideo(id uuid.UUID) error {
+func (c *Client) DeleteVideo(id uuid.UUID) error {
 	query := `
 	DELETE FROM videos
 	WHERE id = ?
