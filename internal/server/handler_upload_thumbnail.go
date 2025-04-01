@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/andycostintoma/tubely/internal/auth"
 	"github.com/andycostintoma/tubely/internal/database"
@@ -49,27 +50,30 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	defer file.Close()
 
 	mediaType := header.Header.Get("Content-Type")
+	if mediaType == "" {
+		respondWithError(w, http.StatusBadRequest, "No content type specified", err)
+		return
+	}
+
 	videoMetadata, err := cfg.db.GetVideo(videoID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't get video", err)
+		return
 	}
 	if videoMetadata.UserID != userID {
 		respondWithError(w, http.StatusUnauthorized, "You do not have permission to upload this video", err)
+		return
 	}
 
 	rawBytes, err := io.ReadAll(file)
-	th := thumbnail{
-		data:      rawBytes,
-		mediaType: mediaType,
-	}
+	encodedImg := base64.StdEncoding.EncodeToString(rawBytes)
+	dataUrl := fmt.Sprintf("data:%v;base64,%v", mediaType, encodedImg)
 
-	videoThumbnails[videoID] = th
-	thumbnailUrl := fmt.Sprintf("/api/thumbnails/%v", videoID)
 	updatedVideo := database.Video{
 		ID:                videoMetadata.ID,
 		CreatedAt:         videoMetadata.CreatedAt,
 		UpdatedAt:         time.Now(),
-		ThumbnailURL:      &thumbnailUrl,
+		ThumbnailURL:      &dataUrl,
 		VideoURL:          videoMetadata.VideoURL,
 		CreateVideoParams: videoMetadata.CreateVideoParams,
 	}
@@ -77,6 +81,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	err = cfg.db.UpdateVideo(updatedVideo)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update thumbnail", err)
+		return
 	}
 
 	respondWithJSON(w, http.StatusOK, updatedVideo)
