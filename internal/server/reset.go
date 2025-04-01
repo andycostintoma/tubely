@@ -13,7 +13,7 @@ func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
 
 	err := cfg.db.Reset()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't reset database", err)
+		respondAndLog(w, http.StatusInternalServerError, "Couldn't reset database", err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

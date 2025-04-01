@@ -3,23 +3,26 @@ package server
 import (
 	"fmt"
 	"github.com/andycostintoma/tubely/internal/database"
+	"github.com/andycostintoma/tubely/internal/utils"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
 type apiConfig struct {
-	db               database.Client
-	jwtSecret        string
-	platform         string
-	serverURL        string
-	filepathRoot     string
-	assetsRoot       string
-	s3Bucket         string
-	s3Region         string
-	s3CfDistribution string
-	port             string
+	serverURL         string
+	port              string
+	platform          string
+	db                database.Client
+	jwtSecret         string
+	filepathRoot      string
+	assetsRoot        string
+	thumbnailsStorage string
+	s3Bucket          string
+	s3Region          string
+	s3CfDistribution  string
 }
 
 func NewServer() (*http.Server, error) {
@@ -34,8 +37,8 @@ func NewServer() (*http.Server, error) {
 		return nil, fmt.Errorf("could not connect to database: %v", err)
 	}
 
-	serverUrl := os.Getenv("SERVER_URL")
-	if serverUrl == "" {
+	serverURL := os.Getenv("SERVER_URL")
+	if serverURL == "" {
 		return nil, fmt.Errorf("environment variable SERVER_URL is not set")
 	}
 
@@ -47,6 +50,15 @@ func NewServer() (*http.Server, error) {
 	platform := os.Getenv("PLATFORM")
 	if platform == "" {
 		return nil, fmt.Errorf("environment variable PLATFORM is not set")
+	}
+
+	allowedStorage := utils.NewSet("db", "fs")
+	thumbnailStorage := os.Getenv("THUMBNAILS_STORAGE")
+	if thumbnailStorage == "" {
+		return nil, fmt.Errorf("environment variable THUMBNAILS_STORAGE is not set")
+	}
+	if !allowedStorage.Contains(thumbnailStorage) {
+		return nil, fmt.Errorf("THUMBNAILS_STORAGE %s is not allowed. Must be one of: %s", thumbnailStorage, strings.Join(allowedStorage.Values(), ", "))
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -80,15 +92,17 @@ func NewServer() (*http.Server, error) {
 	}
 
 	cfg := apiConfig{
-		db:               db,
-		jwtSecret:        jwtSecret,
-		platform:         platform,
-		filepathRoot:     filepathRoot,
-		assetsRoot:       assetsRoot,
-		s3Bucket:         s3Bucket,
-		s3Region:         s3Region,
-		s3CfDistribution: s3CfDistribution,
-		port:             port,
+		serverURL:         serverURL,
+		port:              port,
+		platform:          platform,
+		db:                db,
+		jwtSecret:         jwtSecret,
+		filepathRoot:      filepathRoot,
+		assetsRoot:        assetsRoot,
+		thumbnailsStorage: thumbnailStorage,
+		s3Bucket:          s3Bucket,
+		s3Region:          s3Region,
+		s3CfDistribution:  s3CfDistribution,
 	}
 
 	err = cfg.ensureAssetsDir()
@@ -104,7 +118,7 @@ func NewServer() (*http.Server, error) {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	log.Printf("Server listening on %v:%v", serverUrl, port)
+	log.Printf("Server listening on %v:%v", serverURL, port)
 
 	return server, nil
 }

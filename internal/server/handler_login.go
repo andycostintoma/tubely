@@ -24,19 +24,19 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		respondAndLog(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
 		return
 	}
 
 	user, err := cfg.db.GetUserByEmail(params.Email)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
+		respondAndLog(w, http.StatusUnauthorized, "Incorrect email or password", err)
 		return
 	}
 
 	err = auth.CheckPasswordHash(params.Password, user.Password)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
+		respondAndLog(w, http.StatusUnauthorized, "Incorrect email or password", err)
 		return
 	}
 
@@ -46,13 +46,13 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		time.Hour*24*30,
 	)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't create access JWT", err)
+		respondAndLog(w, http.StatusInternalServerError, "Couldn't create access JWT", err)
 		return
 	}
 
 	refreshToken, err := auth.MakeRefreshToken()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't create refresh token", err)
+		respondAndLog(w, http.StatusInternalServerError, "Couldn't create refresh token", err)
 		return
 	}
 
@@ -62,7 +62,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
 	})
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't save refresh token", err)
+		respondAndLog(w, http.StatusInternalServerError, "Couldn't save refresh token", err)
 		return
 	}
 

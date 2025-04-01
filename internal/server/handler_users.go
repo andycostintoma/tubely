@@ -17,18 +17,18 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		respondAndLog(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
 		return
 	}
 
 	if params.Password == "" || params.Email == "" {
-		respondWithError(w, http.StatusBadRequest, "Email and password are required", nil)
+		respondAndLog(w, http.StatusBadRequest, "Email and password are required", nil)
 		return
 	}
 
 	hashedPassword, err := auth.HashPassword(params.Password)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't hash password", err)
+		respondAndLog(w, http.StatusInternalServerError, "Couldn't hash password", err)
 		return
 	}
 
@@ -37,7 +37,7 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 		Password: hashedPassword,
 	})
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't create user", err)
+		respondAndLog(w, http.StatusInternalServerError, "Couldn't create user", err)
 		return
 	}
 
