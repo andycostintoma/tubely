@@ -19,8 +19,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Printf("Server listening on %v", app.Addr)
-
 	err = app.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
