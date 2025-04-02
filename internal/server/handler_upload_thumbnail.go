@@ -6,6 +6,7 @@ import (
 	"github.com/andycostintoma/tubely/internal/auth"
 	"github.com/andycostintoma/tubely/internal/database"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"strings"
@@ -51,9 +52,20 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	}
 	defer file.Close()
 
-	mediaType := header.Header.Get("Content-Type")
-	if mediaType == "" {
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
 		respondAndLog(w, http.StatusBadRequest, "No content type specified", err)
+		return
+	}
+
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		respondAndLog(w, http.StatusBadRequest, "Invalid content type", err)
+		return
+	}
+
+	if mediaType != "image/jpeg" && mediaType != "image/png" {
+		respondAndLog(w, http.StatusBadRequest, "Invalid media type", err)
 		return
 	}
 
