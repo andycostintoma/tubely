@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"github.com/andycostintoma/tubely/internal/auth"
@@ -91,7 +92,14 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 
 	} else if cfg.thumbnailsStorage == "fs" {
 		fileExt := strings.Split(mediaType, "/")[1]
-		filePath := fmt.Sprintf("%v/%v.%v", cfg.assetsRoot, videoID, fileExt)
+		randomBytes := make([]byte, 32)
+		_, err = rand.Read(randomBytes)
+		if err != nil {
+			respondAndLog(w, http.StatusInternalServerError, "Couldn't generate random bytes", err)
+			return
+		}
+		randomString := base64.RawURLEncoding.EncodeToString(randomBytes)
+		filePath := fmt.Sprintf("%v/%v.%v", cfg.assetsRoot, randomString, fileExt)
 		newFile, err := os.Create(filePath)
 		if err != nil {
 			respondAndLog(w, http.StatusInternalServerError, "Couldn't create file", err)
