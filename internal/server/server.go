@@ -1,12 +1,16 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"github.com/andycostintoma/tubely/internal/database"
 	"github.com/andycostintoma/tubely/internal/utils"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -20,6 +24,9 @@ type apiConfig struct {
 	filepathRoot      string
 	assetsRoot        string
 	thumbnailsStorage string
+	useLocalstack     bool
+	localstackURL     string
+	s3Client          *s3.Client
 	s3Bucket          string
 	s3Region          string
 	s3CfDistribution  string
@@ -76,6 +83,23 @@ func NewServer() (*http.Server, error) {
 		return nil, fmt.Errorf("environment variable ASSETS_ROOT is not set")
 	}
 
+	useLocalstackStr := os.Getenv("USE_LOCALSTACK")
+	if useLocalstackStr == "" {
+		return nil, fmt.Errorf("environment variable USE_LOCALSTACK is not set")
+	}
+
+	useLocalstack, err := strconv.ParseBool(useLocalstackStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for USE_LOCALSTACK: %q. Must be 'true' or 'false'", useLocalstackStr)
+	}
+
+	localstackURL := os.Getenv("LOCALSTACK_URL")
+	if useLocalstack {
+		if localstackURL == "" {
+			return nil, fmt.Errorf("environment variable LOCALSTACK_URL is not set")
+		}
+	}
+
 	s3Bucket := os.Getenv("S3_BUCKET")
 	if s3Bucket == "" {
 		return nil, fmt.Errorf("environment variable S3_BUCKET is not set")
@@ -91,6 +115,16 @@ func NewServer() (*http.Server, error) {
 		return nil, fmt.Errorf("environment variable S3_CF_DISTRO is not set")
 	}
 
+	awsConfig, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(s3Region))
+
+	s3Client := s3.NewFromConfig(awsConfig, func(o *s3.Options) {
+		o.UsePathStyle = useLocalstack
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("could not load default aws config: %v", err)
+	}
+
 	cfg := apiConfig{
 		serverURL:         serverURL,
 		port:              port,
@@ -100,6 +134,9 @@ func NewServer() (*http.Server, error) {
 		filepathRoot:      filepathRoot,
 		assetsRoot:        assetsRoot,
 		thumbnailsStorage: thumbnailStorage,
+		useLocalstack:     useLocalstack,
+		localstackURL:     localstackURL,
+		s3Client:          s3Client,
 		s3Bucket:          s3Bucket,
 		s3Region:          s3Region,
 		s3CfDistribution:  s3CfDistribution,

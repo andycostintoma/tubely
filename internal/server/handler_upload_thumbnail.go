@@ -18,7 +18,6 @@ import (
 
 func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Request) {
 	videoIDString := r.PathValue("videoID")
-
 	videoID, err := uuid.Parse(videoIDString)
 	if err != nil {
 		respondAndLog(w, http.StatusBadRequest, "Invalid ID", err)
@@ -34,6 +33,16 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
 	if err != nil {
 		respondAndLog(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		return
+	}
+
+	videoMetadata, err := cfg.db.GetVideo(videoID)
+	if err != nil {
+		respondAndLog(w, http.StatusInternalServerError, "Couldn't get video", err)
+		return
+	}
+	if videoMetadata.UserID != userID {
+		respondAndLog(w, http.StatusUnauthorized, "You do not have permission to upload this video", err)
 		return
 	}
 
@@ -67,16 +76,6 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 
 	if mediaType != "image/jpeg" && mediaType != "image/png" {
 		respondAndLog(w, http.StatusBadRequest, "Invalid media type", err)
-		return
-	}
-
-	videoMetadata, err := cfg.db.GetVideo(videoID)
-	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't get video", err)
-		return
-	}
-	if videoMetadata.UserID != userID {
-		respondAndLog(w, http.StatusUnauthorized, "You do not have permission to upload this video", err)
 		return
 	}
 
