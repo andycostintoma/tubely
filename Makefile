@@ -53,12 +53,11 @@ download-samples:
 
 start-localstack:
 	@echo "Starting LocalStack..."
-	localstack start -d
-	@sleep 5
+	docker compose up -d
 
 stop-localstack:
 	@echo "Stopping LocalStack..."
-	localstack stop
+	docker compose down
 
 configure-localstack:
 	@echo "Configuring AWS CLI profile for LocalStack"
