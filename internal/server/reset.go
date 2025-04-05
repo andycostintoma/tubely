@@ -4,18 +4,16 @@ import (
 	"net/http"
 )
 
-func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) error {
 	if cfg.platform != "dev" {
-		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte("Reset is only allowed in dev environment."))
-		return
+		return NewApiError(http.StatusForbidden, "Reset is only allowed in dev environment.", nil)
 	}
 
 	err := cfg.db.Reset()
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't reset database", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't reset database", err)
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Database reset to initial state"))
+	return nil
 }

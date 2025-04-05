@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"github.com/andycostintoma/tubely/internal/auth"
 	"github.com/andycostintoma/tubely/internal/database"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
@@ -16,35 +15,20 @@ import (
 	"time"
 )
 
-func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request, userID uuid.UUID) error {
 	videoIDString := r.PathValue("videoID")
 
 	videoID, err := uuid.Parse(videoIDString)
 	if err != nil {
-		respondAndLog(w, http.StatusBadRequest, "Invalid ID", err)
-		return
-	}
-
-	token, err := auth.GetBearerToken(r.Header)
-	if err != nil {
-		respondAndLog(w, http.StatusUnauthorized, "Couldn't find JWT", err)
-		return
-	}
-
-	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
-	if err != nil {
-		respondAndLog(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
-		return
+		return NewApiError(http.StatusBadRequest, "Invalid ID", err)
 	}
 
 	videoMetadata, err := cfg.db.GetVideo(videoID)
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't get video", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't get video", err)
 	}
 	if videoMetadata.UserID != userID {
-		respondAndLog(w, http.StatusUnauthorized, "You do not have permission to upload this video", err)
-		return
+		return NewApiError(http.StatusUnauthorized, "You do not have permission to upload this video", err)
 	}
 
 	fmt.Println("uploading video for video", videoID, "by user", userID)
@@ -52,52 +36,44 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	const maxMemory = 1 << 30 // 1 GB
 	err = r.ParseMultipartForm(maxMemory)
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't parse multipart form", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't parse multipart form", err)
 	}
 
 	file, header, err := r.FormFile("video")
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't get file", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't get file", err)
 	}
 	defer file.Close()
 
 	contentType := header.Header.Get("Content-Type")
 	if contentType == "" {
-		respondAndLog(w, http.StatusBadRequest, "No content type specified", err)
-		return
+		return NewApiError(http.StatusBadRequest, "No content type specified", err)
 	}
 
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
-		respondAndLog(w, http.StatusBadRequest, "Invalid content type", err)
-		return
+		return NewApiError(http.StatusBadRequest, "Invalid content type", err)
 	}
 
 	if mediaType != "video/mp4" {
-		respondAndLog(w, http.StatusBadRequest, "Invalid media type", err)
-		return
+		return NewApiError(http.StatusBadRequest, "Invalid content type", err)
 	}
 
 	temp, err := os.CreateTemp("", "tubely-upload.mp4")
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't create temp file", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't create temp file", err)
 	}
 	defer os.Remove(temp.Name())
 	defer temp.Close()
 
 	_, err = io.Copy(temp, file)
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't copy to temp file", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't copy to temp file", err)
 	}
 
 	_, err = temp.Seek(0, io.SeekStart)
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't reset temp file", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't reset temp file", err)
 	}
 
 	fileExt := strings.Split(mediaType, "/")[1]
@@ -116,8 +92,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	})
 
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't upload video", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't upload video", err)
 	}
 
 	var videoURL string
@@ -138,8 +113,8 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 
 	err = cfg.db.UpdateVideo(updatedVideo)
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't update video", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't update video", err)
 	}
 
+	return nil
 }

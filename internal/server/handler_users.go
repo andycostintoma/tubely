@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request) error {
 	type parameters struct {
 		Password string `json:"password"`
 		Email    string `json:"email"`
@@ -17,19 +17,16 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't decode parameters", err)
 	}
 
 	if params.Password == "" || params.Email == "" {
-		respondAndLog(w, http.StatusBadRequest, "Email and password are required", nil)
-		return
+		return NewApiError(http.StatusBadRequest, "Email and password are required", nil)
 	}
 
 	hashedPassword, err := auth.HashPassword(params.Password)
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't hash password", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't hash password", err)
 	}
 
 	user, err := cfg.db.CreateUser(database.CreateUserParams{
@@ -37,9 +34,9 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 		Password: hashedPassword,
 	})
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't create user", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't create user", err)
 	}
 
 	respondWithJSON(w, http.StatusCreated, user)
+	return nil
 }

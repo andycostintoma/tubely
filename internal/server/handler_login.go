@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) error {
 	type parameters struct {
 		Password string `json:"password"`
 		Email    string `json:"email"`
@@ -24,20 +24,17 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
-		return
+		return NewApiError(http.StatusBadRequest, "Couldn't parse request body", err)
 	}
 
 	user, err := cfg.db.GetUserByEmail(params.Email)
 	if err != nil {
-		respondAndLog(w, http.StatusUnauthorized, "Incorrect email or password", err)
-		return
+		return NewApiError(http.StatusUnauthorized, "Incorrect email or password", err)
 	}
 
 	err = auth.CheckPasswordHash(params.Password, user.Password)
 	if err != nil {
-		respondAndLog(w, http.StatusUnauthorized, "Incorrect email or password", err)
-		return
+		return NewApiError(http.StatusUnauthorized, "Incorrect email or password", err)
 	}
 
 	accessToken, err := auth.MakeJWT(
@@ -45,15 +42,14 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		cfg.jwtSecret,
 		time.Hour*24*30,
 	)
+
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't create access JWT", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't create access JWT", err)
 	}
 
 	refreshToken, err := auth.MakeRefreshToken()
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't create refresh token", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't create refresh token", err)
 	}
 
 	_, err = cfg.db.CreateRefreshToken(database.CreateRefreshTokenParams{
@@ -62,8 +58,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
 	})
 	if err != nil {
-		respondAndLog(w, http.StatusInternalServerError, "Couldn't save refresh token", err)
-		return
+		return NewApiError(http.StatusInternalServerError, "Couldn't save refresh token", err)
 	}
 
 	respondWithJSON(w, http.StatusOK, response{
@@ -71,4 +66,6 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		Token:        accessToken,
 		RefreshToken: refreshToken,
 	})
+
+	return nil
 }
