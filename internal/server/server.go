@@ -32,7 +32,7 @@ type apiConfig struct {
 	s3CfDistribution  string
 }
 
-func NewServer() (*http.Server, error) {
+func newApiConfig() (*apiConfig, error) {
 
 	pathToDB := os.Getenv("DB_PATH")
 	if pathToDB == "" {
@@ -142,9 +142,19 @@ func NewServer() (*http.Server, error) {
 		s3CfDistribution:  s3CfDistribution,
 	}
 
+	return &cfg, nil
+}
+
+func NewServer() (*http.Server, error) {
+
+	cfg, err := newApiConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	err = cfg.ensureAssetsDir()
 	if err != nil {
-		log.Fatalf("Couldn't create assets directory: %v", err)
+		return nil, err
 	}
 
 	server := &http.Server{
@@ -155,7 +165,7 @@ func NewServer() (*http.Server, error) {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	log.Printf("Server listening on %v:%v", serverURL, port)
+	log.Printf("Server listening on %v:%v", cfg.serverURL, cfg.port)
 
 	return server, nil
 }

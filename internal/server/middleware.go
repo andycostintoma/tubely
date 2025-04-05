@@ -9,18 +9,6 @@ import (
 	"net/http"
 )
 
-type CustomServeMux struct {
-	mux       *http.ServeMux
-	jwtSecret string
-}
-
-func NewCustomServeMux(jwtSecret string) *CustomServeMux {
-	return &CustomServeMux{
-		mux:       http.NewServeMux(),
-		jwtSecret: jwtSecret,
-	}
-}
-
 type ApiError struct {
 	Code    int
 	Message string
@@ -39,10 +27,9 @@ func (a *ApiError) Error() string {
 }
 
 type ApiErrorHandlerFunc func(w http.ResponseWriter, r *http.Request) error
-type AuthenticatedHandlerFunc func(http.ResponseWriter, *http.Request, uuid.UUID) error
 
-func (c *CustomServeMux) HandleApiError(pattern string, handler ApiErrorHandlerFunc) {
-	c.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+func withApiError(handler ApiErrorHandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		err := handler(w, r)
 		if err == nil {
 			return
@@ -63,33 +50,24 @@ func (c *CustomServeMux) HandleApiError(pattern string, handler ApiErrorHandlerF
 		// Fallback for unexpected errors
 		log.Printf("HTTP %s %s -> 500: %v", r.Method, r.URL.Path, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	})
+		return
+	}
 }
 
-func (c *CustomServeMux) HandleAuthenticated(pattern string, handler AuthenticatedHandlerFunc) {
-	c.HandleApiError(pattern, func(w http.ResponseWriter, r *http.Request) error {
+type AuthenticatedHandlerFunc func(http.ResponseWriter, *http.Request, uuid.UUID) error
+
+func (cfg *apiConfig) withAuth(handler AuthenticatedHandlerFunc) http.HandlerFunc {
+	return withApiError(func(w http.ResponseWriter, r *http.Request) error {
 		token, err := auth.GetBearerToken(r.Header)
 		if err != nil {
 			return NewApiError(http.StatusUnauthorized, "Unauthorized: Missing or invalid token", err)
 		}
 
-		userID, err := auth.ValidateJWT(token, c.jwtSecret)
+		userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
 		if err != nil {
 			return NewApiError(http.StatusUnauthorized, "Unauthorized: Invalid token", err)
 		}
 
 		return handler(w, r, userID)
 	})
-}
-
-func (c *CustomServeMux) HandleFunc(pattern string, handler http.HandlerFunc) {
-	c.mux.HandleFunc(pattern, handler)
-}
-
-func (c *CustomServeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c.mux.ServeHTTP(w, r)
-}
-
-func (c *CustomServeMux) Handle(s string, handler http.Handler) {
-	c.mux.Handle(s, handler)
 }

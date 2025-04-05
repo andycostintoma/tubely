@@ -3,26 +3,25 @@ package server
 import "net/http"
 
 func (cfg *apiConfig) RegisterRoutes() http.Handler {
-	mux := NewCustomServeMux(cfg.jwtSecret)
+	mux := http.NewServeMux()
 	appHandler := http.StripPrefix("/app", http.FileServer(http.Dir(cfg.filepathRoot)))
 	mux.Handle("/app/", appHandler)
 
 	assetsHandler := http.StripPrefix("/assets", http.FileServer(http.Dir(cfg.assetsRoot)))
 	mux.Handle("/assets/", noCacheMiddleware(assetsHandler))
 
-	mux.HandleApiError("POST /api/users", cfg.handlerUsersCreate)
-	mux.HandleApiError("POST /api/login", cfg.handlerLogin)
-	mux.HandleApiError("POST /api/refresh", cfg.handlerRefresh)
-	mux.HandleApiError("POST /api/revoke", cfg.handlerRevoke)
+	mux.HandleFunc("POST /api/users", withApiError(cfg.handlerUsersCreate))
+	mux.HandleFunc("POST /api/login", withApiError(cfg.handlerLogin))
+	mux.HandleFunc("POST /api/refresh", withApiError(cfg.handlerRefresh))
+	mux.HandleFunc("POST /api/revoke", withApiError(cfg.handlerRevoke))
+	mux.HandleFunc("GET /api/videos/{videoID}", withApiError(cfg.handlerVideoGet))
+	mux.HandleFunc("POST /admin/reset", withApiError(cfg.handlerReset))
 
-	mux.HandleAuthenticated("POST /api/videos", cfg.handlerVideoMetaCreate)
-	mux.HandleAuthenticated("POST /api/thumbnail_upload/{videoID}", cfg.handlerUploadThumbnail)
-	mux.HandleAuthenticated("POST /api/video_upload/{videoID}", cfg.handlerUploadVideo)
-	mux.HandleAuthenticated("GET /api/videos", cfg.handlerVideosRetrieve)
-	mux.HandleApiError("GET /api/videos/{videoID}", cfg.handlerVideoGet)
-	mux.HandleAuthenticated("DELETE /api/videos/{videoID}", cfg.handlerVideoMetaDelete)
-
-	mux.HandleApiError("POST /admin/reset", cfg.handlerReset)
+	mux.HandleFunc("POST /api/videos", cfg.withAuth(cfg.handlerVideoMetaCreate))
+	mux.HandleFunc("POST /api/thumbnail_upload/{videoID}", cfg.withAuth(cfg.handlerUploadThumbnail))
+	mux.HandleFunc("POST /api/video_upload/{videoID}", cfg.withAuth(cfg.handlerUploadVideo))
+	mux.HandleFunc("GET /api/videos", cfg.withAuth(cfg.handlerVideosRetrieve))
+	mux.HandleFunc("DELETE /api/videos/{videoID}", cfg.withAuth(cfg.handlerVideoMetaDelete))
 
 	// Wrap the mux with CORS middleware
 	return corsMiddleware(mux)
