@@ -67,16 +67,13 @@ configure-localstack:
 	aws configure set output json
 	aws configure set endpoint_url http://localhost:4566
 
-	aws iam create-user --user-name my-user
+	aws iam create-user --user-name test-user
 	aws iam create-group --group-name managers
 	aws iam attach-group-policy --group-name managers --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
-	aws iam add-user-to-group --user-name my-user --group-name managers
-	aws iam create-access-key --user-name my-user
+	aws iam add-user-to-group --user-name test-user --group-name managers
+	aws iam create-access-key --user-name test-user
 
 	aws s3 mb s3://tubely-12345
 	aws s3api put-bucket-policy --bucket tubely-12345 --policy file://s3-policy.json
-
-
-
 
 .PHONY: all build run test clean watch download-samples start-localstack stop-localstack configure-localstack

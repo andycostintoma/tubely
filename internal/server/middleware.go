@@ -28,17 +28,29 @@ func (a *ApiError) Error() string {
 
 type ApiErrorHandlerFunc func(w http.ResponseWriter, r *http.Request) error
 
+type errorResponse struct {
+	Error string `json:"error"`
+}
+
 func withApiError(handler ApiErrorHandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Recover from panic if one occurs
+		defer func() {
+			if rec := recover(); rec != nil {
+				// Log the panic and respond with a 500
+				log.Printf("HTTP %s %s -> 500: Panic: %v", r.Method, r.URL.Path, r)
+				respondWithJSON(w, http.StatusInternalServerError, errorResponse{
+					Error: "Internal Server Error",
+				})
+			}
+		}()
+
 		err := handler(w, r)
 		if err == nil {
 			return
 		}
 
 		var apiErr *ApiError
-		type errorResponse struct {
-			Error string `json:"error"`
-		}
 		if errors.As(err, &apiErr) {
 			log.Printf("HTTP %s %s -> %d: %v", r.Method, r.URL.Path, apiErr.Code, apiErr.Err)
 			respondWithJSON(w, apiErr.Code, errorResponse{
@@ -49,7 +61,9 @@ func withApiError(handler ApiErrorHandlerFunc) http.HandlerFunc {
 
 		// Fallback for unexpected errors
 		log.Printf("HTTP %s %s -> 500: %v", r.Method, r.URL.Path, err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithJSON(w, http.StatusInternalServerError, errorResponse{
+			Error: "Internal Server Error",
+		})
 		return
 	}
 }

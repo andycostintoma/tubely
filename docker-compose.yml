@@ -8,7 +8,6 @@ services:
     environment:
       # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
       DEBUG: 0
-      DEFAULT_REGION: ${S3_REGION}
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
       - "./localstack_data:/var/lib/localstack"
