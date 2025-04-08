@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/andycostintoma/tubely/internal/database"
 	"github.com/google/uuid"
+	"mime"
 	"net/http"
 	"time"
 )
@@ -26,11 +27,26 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request,
 	fmt.Println("uploading video for video", videoID, "by user", userID)
 
 	const maxMemory = 1 << 30 // 1 GB
-	file, mediaType, err := readFormFile(r, "video", maxMemory)
+	err = r.ParseMultipartForm(maxMemory)
 	if err != nil {
-		return err
+		return NewApiError(http.StatusBadRequest, "Error parsing multipart form", err)
+	}
+
+	file, header, err := r.FormFile("video")
+	if err != nil {
+		return NewApiError(http.StatusBadRequest, "Error parsing form file", err)
 	}
 	defer file.Close()
+
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		return NewApiError(http.StatusBadRequest, "Error getting content type", nil)
+	}
+
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return NewApiError(http.StatusBadRequest, "Error parsing media type", err)
+	}
 
 	if mediaType != "video/mp4" {
 		return NewApiError(http.StatusBadRequest, "Invalid content type", err)

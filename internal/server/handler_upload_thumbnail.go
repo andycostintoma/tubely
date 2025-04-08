@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"github.com/andycostintoma/tubely/internal/database"
+	"mime"
 	"net/http"
 	"time"
 
@@ -28,11 +29,26 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	fmt.Println("uploading thumbnail for video", videoID, "by user", userID)
 
 	const maxMemory = 10 << 20 // 10 mb
-	file, mediaType, err := readFormFile(r, "thumbnail", maxMemory)
+	err = r.ParseMultipartForm(maxMemory)
 	if err != nil {
-		return err
+		return NewApiError(http.StatusBadRequest, "Error parsing multipart form", err)
+	}
+
+	file, header, err := r.FormFile("thumbnail")
+	if err != nil {
+		return NewApiError(http.StatusBadRequest, "Error parsing form file", err)
 	}
 	defer file.Close()
+
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		return NewApiError(http.StatusBadRequest, "Error getting content type", nil)
+	}
+
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return NewApiError(http.StatusBadRequest, "Error parsing media type", err)
+	}
 
 	if mediaType != "image/jpeg" && mediaType != "image/png" {
 		return NewApiError(http.StatusBadRequest, "Invalid content type", err)
