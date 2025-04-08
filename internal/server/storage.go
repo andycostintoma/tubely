@@ -90,6 +90,22 @@ func (s *S3Storage) Save(ctx context.Context, r io.Reader, mediaType string) (st
 		return "", err
 	}
 
+	if fileExt == "mp4" {
+		ratio, err := utils.GetVideoAspectRatio(temp.Name())
+		if err != nil {
+			return "", err
+		}
+
+		switch ratio {
+		case "16:9":
+			filename = fmt.Sprintf("landscape/%v", filename)
+		case "9:16":
+			filename = fmt.Sprintf("portrait/%v", filename)
+		default:
+			filename = fmt.Sprintf("other/%v", filename)
+		}
+	}
+
 	_, err = s.Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:      &s.Bucket,
 		Key:         &filename,
