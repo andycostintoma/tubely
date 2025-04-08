@@ -44,12 +44,12 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) error
 	)
 
 	if err != nil {
-		return NewApiError(http.StatusInternalServerError, "Couldn't create access JWT", err)
+		return NewInternalServerError(err)
 	}
 
 	refreshToken, err := auth.MakeRefreshToken()
 	if err != nil {
-		return NewApiError(http.StatusInternalServerError, "Couldn't create refresh token", err)
+		return NewInternalServerError(err)
 	}
 
 	_, err = cfg.db.CreateRefreshToken(database.CreateRefreshTokenParams{
@@ -58,7 +58,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) error
 		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
 	})
 	if err != nil {
-		return NewApiError(http.StatusInternalServerError, "Couldn't save refresh token", err)
+		return NewInternalServerError(err)
 	}
 
 	respondWithJSON(w, http.StatusOK, response{

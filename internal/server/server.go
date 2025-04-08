@@ -152,7 +152,7 @@ func NewServer() (*http.Server, error) {
 		return nil, err
 	}
 
-	err = cfg.ensureAssetsDir()
+	err = utils.EnsureDirExists(cfg.assetsRoot, 0755)
 	if err != nil {
 		return nil, err
 	}

@@ -11,7 +11,7 @@ func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) error
 
 	err := cfg.db.Reset()
 	if err != nil {
-		return NewApiError(http.StatusInternalServerError, "Couldn't reset database", err)
+		return NewInternalServerError(err)
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Database reset to initial state"))

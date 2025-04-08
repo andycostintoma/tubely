@@ -19,6 +19,10 @@ func NewApiError(code int, message string, err error) *ApiError {
 	return &ApiError{Code: code, Message: message, Err: err}
 }
 
+func NewInternalServerError(err error) *ApiError {
+	return &ApiError{Code: http.StatusInternalServerError, Message: "Internal Server Error", Err: err}
+}
+
 func (a *ApiError) Error() string {
 	if a.Err != nil {
 		return fmt.Sprintf("%d %s: %v", a.Code, a.Message, a.Err)
