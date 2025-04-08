@@ -3,9 +3,12 @@ package server
 import (
 	"fmt"
 	"github.com/andycostintoma/tubely/internal/database"
+	"github.com/andycostintoma/tubely/internal/utils"
 	"github.com/google/uuid"
 	"mime"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -52,15 +55,49 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request,
 		return NewApiError(http.StatusBadRequest, "Invalid content type", err)
 	}
 
+	temp, err := utils.CreateTempFile(file, "mp4")
+	if err != nil {
+		return NewInternalServerError(err)
+	}
+	defer os.Remove(temp.Name())
+	defer temp.Close()
+
+	ratio, err := utils.GetVideoAspectRatio(temp.Name())
+	if err != nil {
+		return NewInternalServerError(err)
+	}
+
+	filename := filepath.Base(temp.Name())
+	switch ratio {
+	case "16:9":
+		filename = fmt.Sprintf("landscape/%v", filename)
+	case "9:16":
+		filename = fmt.Sprintf("portrait/%v", filename)
+	default:
+		filename = fmt.Sprintf("other/%v", filename)
+	}
+
+	processedFileName, err := utils.ProcessVideoForFastStart(temp.Name())
+	if err != nil {
+		return NewInternalServerError(err)
+	}
+	processedFile, err := os.Open(processedFileName)
+	if err != nil {
+		return NewInternalServerError(err)
+	}
+	defer processedFile.Close()
+	defer os.Remove(processedFile.Name())
+
 	storage := &S3Storage{
 		Client:        cfg.s3Client,
 		Bucket:        cfg.s3Bucket,
+		Filename:      filename,
 		Region:        cfg.s3Region,
 		UseLocalstack: cfg.useLocalstack,
 		LocalstackURL: cfg.localstackURL,
 	}
 
-	videoURL, err := storage.Save(r.Context(), file, mediaType)
+	videoURL, err := storage.Save(r.Context(), processedFile, mediaType)
 	if err != nil {
 		return NewInternalServerError(err)
 	}

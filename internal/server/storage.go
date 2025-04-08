@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"github.com/andycostintoma/tubely/internal/utils"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -60,56 +59,18 @@ func (db *DBStorage) Save(_ context.Context, r io.Reader, mediaType string) (str
 type S3Storage struct {
 	Client        *s3.Client
 	Bucket        string
+	Filename      string
 	Region        string
 	UseLocalstack bool
 	LocalstackURL string
 }
 
 func (s *S3Storage) Save(ctx context.Context, r io.Reader, mediaType string) (string, error) {
-	fileExt := strings.Split(mediaType, "/")[1]
-	bytes, err := utils.GenerateRandomBytes(16)
-	if err != nil {
-		return "", err
-	}
-	filename := hex.EncodeToString(bytes) + "." + fileExt
 
-	temp, err := os.CreateTemp("", filename)
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(temp.Name())
-	defer temp.Close()
-
-	_, err = io.Copy(temp, r)
-	if err != nil {
-		return "", err
-	}
-
-	_, err = temp.Seek(0, io.SeekStart)
-	if err != nil {
-		return "", err
-	}
-
-	if fileExt == "mp4" {
-		ratio, err := utils.GetVideoAspectRatio(temp.Name())
-		if err != nil {
-			return "", err
-		}
-
-		switch ratio {
-		case "16:9":
-			filename = fmt.Sprintf("landscape/%v", filename)
-		case "9:16":
-			filename = fmt.Sprintf("portrait/%v", filename)
-		default:
-			filename = fmt.Sprintf("other/%v", filename)
-		}
-	}
-
-	_, err = s.Client.PutObject(ctx, &s3.PutObjectInput{
+	_, err := s.Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:      &s.Bucket,
-		Key:         &filename,
-		Body:        temp,
+		Key:         &s.Filename,
+		Body:        r,
 		ContentType: &mediaType,
 	})
 	if err != nil {
@@ -117,7 +78,7 @@ func (s *S3Storage) Save(ctx context.Context, r io.Reader, mediaType string) (st
 	}
 
 	if s.UseLocalstack {
-		return fmt.Sprintf("%s/%s/%s", s.LocalstackURL, s.Bucket, filename), nil
+		return fmt.Sprintf("%s/%s/%s", s.LocalstackURL, s.Bucket, s.Filename), nil
 	}
-	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.Bucket, s.Region, filename), nil
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.Bucket, s.Region, s.Filename), nil
 }
