@@ -91,7 +91,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request,
 	storage := &S3Storage{
 		Client:        cfg.s3Client,
 		Bucket:        cfg.s3Bucket,
-		Filename:      filename,
+		Key:           filename,
 		Region:        cfg.s3Region,
 		UseLocalstack: cfg.useLocalstack,
 		LocalstackURL: cfg.localstackURL,
