@@ -66,12 +66,14 @@ func (cfg *apiConfig) handlerVideoGet(w http.ResponseWriter, r *http.Request) er
 		return NewApiError(http.StatusNotFound, "Couldn't get video", err)
 	}
 
-	signedVideo, err := cfg.dbVideoToSignedVideo(r.Context(), video)
-	if err != nil {
-		return NewInternalServerError(err)
+	if cfg.s3URLMode == "signed" {
+		video, err = cfg.dbVideoToSignedVideo(r.Context(), video)
+		if err != nil {
+			return NewInternalServerError(err)
+		}
 	}
 
-	respondWithJSON(w, http.StatusOK, signedVideo)
+	respondWithJSON(w, http.StatusOK, video)
 	return nil
 }
 
@@ -81,15 +83,18 @@ func (cfg *apiConfig) handlerVideosRetrieve(w http.ResponseWriter, r *http.Reque
 		return NewApiError(http.StatusInternalServerError, "Couldn't retrieve videos", err)
 	}
 
-	signedVideos := make([]database.Video, 0, len(videos))
-	for _, video := range videos {
-		signedVideo, err := cfg.dbVideoToSignedVideo(r.Context(), video)
-		if err != nil {
-			return NewInternalServerError(err)
+	if cfg.s3URLMode == "signed" {
+		signedVideos := make([]database.Video, 0, len(videos))
+		for _, video := range videos {
+			signedVideo, err := cfg.dbVideoToSignedVideo(r.Context(), video)
+			if err != nil {
+				return NewInternalServerError(err)
+			}
+			signedVideos = append(signedVideos, signedVideo)
 		}
-		signedVideos = append(signedVideos, signedVideo)
+		videos = signedVideos
 	}
 
-	respondWithJSON(w, http.StatusOK, signedVideos)
+	respondWithJSON(w, http.StatusOK, videos)
 	return nil
 }

@@ -10,8 +10,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -27,22 +25,13 @@ type apiConfig struct {
 	useLocalstack     bool
 	localstackURL     string
 	s3Client          *s3.Client
+	s3URLMode         string
 	s3Bucket          string
 	s3Region          string
 	s3CfDistribution  string
 }
 
 func newApiConfig() (*apiConfig, error) {
-
-	pathToDB := os.Getenv("DB_PATH")
-	if pathToDB == "" {
-		return nil, fmt.Errorf("environment variable DB_PATH is not set")
-	}
-
-	db, err := database.NewClient(pathToDB)
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to database: %v", err)
-	}
 
 	serverURL := os.Getenv("SERVER_URL")
 	if serverURL == "" {
@@ -59,13 +48,22 @@ func newApiConfig() (*apiConfig, error) {
 		return nil, fmt.Errorf("environment variable PLATFORM is not set")
 	}
 
-	allowedStorage := utils.NewSet("db", "fs")
+	pathToDB := os.Getenv("DB_PATH")
+	if pathToDB == "" {
+		return nil, fmt.Errorf("environment variable DB_PATH is not set")
+	}
+
+	db, err := database.NewClient(pathToDB)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to database: %v", err)
+	}
+
 	thumbnailStorage := os.Getenv("THUMBNAILS_STORAGE")
 	if thumbnailStorage == "" {
 		return nil, fmt.Errorf("environment variable THUMBNAILS_STORAGE is not set")
 	}
-	if !allowedStorage.Contains(thumbnailStorage) {
-		return nil, fmt.Errorf("THUMBNAILS_STORAGE %s is not allowed. Must be one of: %s", thumbnailStorage, strings.Join(allowedStorage.Values(), ", "))
+	if thumbnailStorage != "db" && thumbnailStorage != "fs" {
+		return nil, fmt.Errorf("THUMBNAILS_STORAGE %s is not allowed. Must be one of: db, fs", thumbnailStorage)
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -83,21 +81,9 @@ func newApiConfig() (*apiConfig, error) {
 		return nil, fmt.Errorf("environment variable ASSETS_ROOT is not set")
 	}
 
-	useLocalstackStr := os.Getenv("USE_LOCALSTACK")
-	if useLocalstackStr == "" {
-		return nil, fmt.Errorf("environment variable USE_LOCALSTACK is not set")
-	}
-
-	useLocalstack, err := strconv.ParseBool(useLocalstackStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid value for USE_LOCALSTACK: %q. Must be 'true' or 'false'", useLocalstackStr)
-	}
-
-	localstackURL := os.Getenv("LOCALSTACK_URL")
-	if useLocalstack {
-		if localstackURL == "" {
-			return nil, fmt.Errorf("environment variable LOCALSTACK_URL is not set")
-		}
+	s3Region := os.Getenv("S3_REGION")
+	if s3Region == "" {
+		return nil, fmt.Errorf("environment variable S3_REGION is not set")
 	}
 
 	s3Bucket := os.Getenv("S3_BUCKET")
@@ -105,14 +91,27 @@ func newApiConfig() (*apiConfig, error) {
 		return nil, fmt.Errorf("environment variable S3_BUCKET is not set")
 	}
 
-	s3Region := os.Getenv("S3_REGION")
-	if s3Region == "" {
-		return nil, fmt.Errorf("environment variable S3_REGION is not set")
+	s3URLMode := os.Getenv("S3_URL_MODE")
+	if s3URLMode == "" {
+		return nil, fmt.Errorf("environment variable S3_URL_MODE is not set")
+	}
+	if s3URLMode != "localstack" && s3URLMode != "public" && s3URLMode != "presigned" && s3URLMode != "cloudfront" {
+		return nil, fmt.Errorf("S3_URL_MODE %s is not allowed. Must be public, presigned or clodfront", s3URLMode)
+	}
+
+	useLocalstack := s3URLMode == "localstack"
+	localstackURL := os.Getenv("LOCALSTACK_URL")
+	if useLocalstack {
+		if localstackURL == "" {
+			return nil, fmt.Errorf("environment variable LOCALSTACK_URL is not set")
+		}
 	}
 
 	s3CfDistribution := os.Getenv("S3_CF_DISTRO")
-	if s3CfDistribution == "" {
-		return nil, fmt.Errorf("environment variable S3_CF_DISTRO is not set")
+	if s3URLMode == "cloudfront" {
+		if s3CfDistribution == "" {
+			return nil, fmt.Errorf("environment variable S3_CF_DISTRO is not set")
+		}
 	}
 
 	awsConfig, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(s3Region))
@@ -134,9 +133,9 @@ func newApiConfig() (*apiConfig, error) {
 		filepathRoot:      filepathRoot,
 		assetsRoot:        assetsRoot,
 		thumbnailsStorage: thumbnailStorage,
-		useLocalstack:     useLocalstack,
 		localstackURL:     localstackURL,
 		s3Client:          s3Client,
+		s3URLMode:         s3URLMode,
 		s3Bucket:          s3Bucket,
 		s3Region:          s3Region,
 		s3CfDistribution:  s3CfDistribution,

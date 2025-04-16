@@ -74,6 +74,6 @@ configure-localstack:
 	aws iam create-access-key --user-name test-user
 
 	aws s3 mb s3://tubely-12345
-	aws s3api put-bucket-policy --bucket tubely-12345 --policy file://s3-policy.json
+	aws s3api put-bucket-policy --bucket tubely-12345 --policy file://s3-policy-localstack.json
 
 .PHONY: all build run test clean watch download-samples start-localstack stop-localstack configure-localstack

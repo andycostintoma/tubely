@@ -61,11 +61,12 @@ func (db *DBStorage) Save(_ context.Context, r io.Reader, mediaType string) (str
 
 type S3Storage struct {
 	Client        *s3.Client
+	Region        string
 	Bucket        string
 	Key           string
-	Region        string
-	UseLocalstack bool
+	URLMode       string
 	LocalstackURL string
+	CloudFrontURL string
 }
 
 func (s *S3Storage) Save(ctx context.Context, r io.Reader, mediaType string) (string, error) {
@@ -80,10 +81,18 @@ func (s *S3Storage) Save(ctx context.Context, r io.Reader, mediaType string) (st
 		return "", fmt.Errorf("failed to upload to S3: %w", err)
 	}
 
-	//if s.UseLocalstack {
-	//	return fmt.Sprintf("%s/%s/%s", s.LocalstackURL, s.Bucket, s.Key), nil
-	//}
-	return fmt.Sprintf("%s,%s", s.Bucket, s.Key), nil
+	switch s.URLMode {
+	case "localstack":
+		return fmt.Sprintf("%s/%s/%s", s.LocalstackURL, s.Bucket, s.Key), nil
+	case "public":
+		return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.Bucket, s.Region, s.Key), nil
+	case "presigned":
+		return fmt.Sprintf("%s,%s", s.Bucket, s.Key), nil
+	case "cloudfront":
+		return fmt.Sprintf("https://%s/%s", s.CloudFrontURL, s.Key), nil
+	default:
+		return "", errors.New("unsupported URL mode")
+	}
 }
 
 func generatePreSignedURL(context context.Context, s3Client *s3.Client, bucket, key string, expireTime time.Duration) (string, error) {
