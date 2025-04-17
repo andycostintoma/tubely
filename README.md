@@ -1,65 +1,97 @@
-# learn-file-storage-s3-golang-starter (Tubely)
+# Tubely
 
-This repo contains the starter code for the Tubely application - the #1 tool for engagement bait - for the "Learn File Servers and CDNs with S3 and CloudFront" [course](https://www.boot.dev/courses/learn-file-servers-s3-cloudfront-golang) on [boot.dev](https://www.boot.dev)
+Tubely is a video management platform that allows users to upload, manage, and process videos and thumbnails. It provides a RESTful API for backend operations and a simple web interface for user interaction.
 
-## Quickstart
+## Features
 
-*This is to be used as a *reference\* in case you need it, you should follow the instructions in the course rather than trying to do everything here.
+### User Authentication
+- Sign up, log in, and manage sessions using JWT-based authentication.
+- Refresh tokens for session management with token revocation support.
 
-## 1. Install dependencies
+### Video Management
+- Create video drafts with metadata (title, description).
+- Upload videos and thumbnails.
+- Process videos for optimized playback using `ffmpeg`.
 
-- [Go](https://golang.org/doc/install)
-- `go mod download` to download all dependencies
-- [FFMPEG](https://ffmpeg.org/download.html) - both `ffmpeg` and `ffprobe` are required to be in your `PATH`.
+### Storage Options
+- Store videos and thumbnails in:
+  - Local filesystem.
+  - Database.
+  - AWS S3 (with LocalStack support for local development).
 
-```bash
-# linux
-sudo apt update
-sudo apt install ffmpeg
+### API Endpoints
+- RESTful API for user management, video uploads, and metadata handling.
+- Middleware for authentication and error handling.
 
-# mac
-brew update
-brew install ffmpeg
-```
+### Frontend
+- Web interface for user login, video draft creation, and video management.
+- Built with HTML, CSS, and JavaScript.
 
-- [SQLite 3](https://www.sqlite.org/download.html) only required for you to manually inspect the database.
+### Backend
+- Written in Go with a modular structure for database, server, and utility functions.
+- SQLite database with auto-migration for tables.
 
-```bash
-# linux
-sudo apt update
-sudo apt install sqlite3
+### Local Development
+- Docker Compose for running LocalStack to simulate AWS services.
+- Makefile for building, running, testing, and managing the application.
 
-# mac
-brew update
-brew install sqlite3
-```
+### Video Processing
+- Analyze video aspect ratios and categorize as landscape, portrait, or other.
+- Process videos for fast start playback.
 
-- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+## Installation
 
-## 2. Download sample images and videos
+### Prerequisites
+- Go 1.23 or later
+- Docker and Docker Compose
+- `ffmpeg` and `ffprobe` installed on your system
 
-```bash
-./samplesdownload.sh
-# samples/ dir will be created
-# with sample images and videos
-```
+### Steps
+1. Clone the repository:
+2. Install dependencies:
+   ```bash
+   go mod tidy
+   ```
+3. Set up environment variables:
+   - Copy `.env.example` to `.env` and update the values as needed.
 
-## 3. Configure environment variables
+4. Start LocalStack (optional for S3 simulation):
+   ```bash
+   make start-localstack
+   ```
 
-Copy the `.env.example` file to `.env` and fill in the values.
+5. Build and run the application:
+   ```bash
+   make build
+   make run
+   ```
 
-```bash
-cp .env.example .env
-```
+## Usage
 
-You'll need to update values in the `.env` file to match your configuration, but _you won't need to do anything here until the course tells you to_.
+### Web Interface
+- Open the web interface in your browser at `http://localhost:<PORT>` (default: 8091).
+- Log in or sign up to start managing videos.
 
-## 3. Run the server
+### API Endpoints
+- Use tools like Postman or `curl` to interact with the RESTful API.
+- Refer to the `routes.go` file for available endpoints.
 
-```bash
-go run .
-```
+### Makefile Commands
+- Build the application: `make build`
+- Run the application: `make run`
+- Test the application: `make test`
+- Start LocalStack: `make start-localstack`
+- Stop LocalStack: `make stop-localstack`
 
-- You should see a new database file `tubely.db` created in the root directory.
-- You should see a new `assets` directory created in the root directory, this is where the images will be stored.
-- You should see a link in your console to open the local web page.
+## Development
+
+### Directory Structure
+- `app/`: Frontend files (HTML, CSS, JavaScript).
+- `cmd/`: Main entry point for the application.
+- `internal/`: Backend logic, including authentication, database, server, and utilities.
+
+### Testing
+- Run tests using:
+  ```bash
+  make test
+  ```
